@@ -1,2 +1,2 @@
 # Regression-Models
-Regression Models course
+The repo contains the relevant files for the Regression Models Project
