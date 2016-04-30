@@ -1,0 +1,160 @@
+---
+# Regression Models Project: Fuel Consumption analysis
+author: "Filomena Ciccarelli"
+date: "30 April 2016"
+output: pdf_document
+---
+```{r echo=TRUE,warning=FALSE, message=FALSE}
+```
+# Regression Models: Course Project
+### Fuel Consumption analysis - Filomena Ciccarelli 30th April 2016
+## Executive Summary
+This report looks at a data set of a collection of cars (*mtcars*) and explores the relationship between a set of variables and miles per gallon (MPG). Specifically, it analyses whether manual transmission cars are better than automatic cars for MPG and quantify the MPG difference between the two transmission systems. The data used for the analysis was extracted from the *1974 Motor Trend US magazine*, and comprises fuel consumption (MPG) and 10 aspects of automobile design and performance for 32 automobiles (1973–74 models).
+
+The analysis seems to suggest that the types of transmission (Automatic or Manual) play a key role in fuel consumption.However, other car factors such as horse power, weight, and number of cylinders also have a an impact on MPG, albeit with different levels of magnitude.The report concludes that manual transmission cars consume more fuel than automatic cars when all other factors are held constant.
+
+The analysis report and the associated code can be found on [GitHub](https://github.com/FilomenaC/Regression-Models).
+
+## Exploratory Data Analysis 
+
+```{r,warning=FALSE, message=FALSE, results='hide'}
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(magrittr)
+library(knitr)
+data(mtcars)
+dim(mtcars)
+attach(mtcars)
+```
+The data has `r sum(is.na(mtcars))`  NA values and `r nrow(mtcars)` x `r ncol(mtcars)` dimensions as indicated above.
+```{r, echo=TRUE, results='hide'}
+str(mtcars)
+```
+The data structure indicates that it is necessary to convert some variables from *numeric* to *factor* class.
+```{r, results='hide'}
+mtcars$am<-factor(mtcars$am)
+mtcars$cyl<-as.factor(mtcars$cyl)
+mtcars$gear<-factor(mtcars$gear)
+mtcars$vs<-as.factor(mtcars$vs)
+mtcars$carb<-factor(mtcars$carb)
+```
+The variation of fuel consumption by transmission type indicates that manual transmission yields higher values of MPG (see Appendix $"Fuel Consumption by Transmission Type"$ plot) i.e. cars with a manual transmission seem to have lower fuel consumption than automatic cars.
+However, the pairs graph in the Appendix showes high correlation with the variables number of cylinders *cyl*, gross horse power *hp*, weigth *wt* and car displacement *disp*. In the next section we carry out the regression and statistical significance analysis. 
+
+## Regression and Statistical Significance Analysis
+We assume that the data *mtcars* is randomly sampled. Also, as the data is non-paired it means that the indipendence condition between the 32 groups (different car models) is met.
+
+###Effect of Transmission type on fuel consumption - Inference analysis
+In this section we assess the statistical significance that fuel consumption varies by transmission. We use the two sample T-test to show this (both samples have n<30) ($H_{0}:\mu_{automatic} = \mu_{manual}.$ $H_{A}:\mu_{automatic} \neq \mu_{manual}$):
+```{r}
+ttest<-t.test(mpg~am,data=mtcars)
+print(ttest)
+```
+Since the p-value `r round(ttest$p.value,digit=4)` < 0.005, we reject the null hypothesis as the data provides strong evidence that fuel consumption differs between car transmission systems. The 95% confidence levels indicates that, based on the *mtcars* data, cars with for automatic transmission drive between *3.2* and *11.3* less MPG than manual transmission cars. The average MPG for the latter is circa 7 more than the average MPG for autiomatic transmission cars.
+
+### Effect of Multiple variables on Fuel Consumption - Regression analysis
+Building up from the finding in the previous paragraph, in this section we asses whether the difference in fuel type by transmission types holds when the other variables are included in the regression model.
+If we were to fit the simple model observed above with MPG  as outcome and Transmission predictor value:
+```{r, results='hide'}
+amfit<-lm(mpg ~ am,data=mtcars)
+```
+The model has an Adjusted R-squared value standard error of *0.3385* (see Appendix) which means that the model can only explain about 34% (the remaining variance is not explained by the model) of the variance of the variable MPG. This indicates that other variables need to be added to the model.
+
+We now explore the full model
+```{r,results='hide'}
+fullfit<-lm(mpg ~.,data=mtcars)
+```
+If we look at the Adjusted R-squared value standard error for this model, this is *0.779* (see Appendix) which means that the full model can actually explain c. 78% of the MPG variance. However, the p-value of all the coefficient estimates are statistically not significant (greater than the significant level 0.05) which indicates that not all the variables are necessary. 
+
+Starting from the full model above, we use the *step* function with the backward direction to select some statistically significant variables.
+```{r, results='hide'}
+stepModel<-step(fullfit,k=log(nrow(mtcars))) 
+anova(stepModel)
+```
+The analysis of the variance table gives the model $mpg$~$wt+qsec+am$. The Adjusted R-squared value standard error for this model, this is *0.850* (see Appendix) which means that the model can explain about 85% of the variance of the MPG variable. All of the coefficients are significant at 0.05 significant level. The variables weight *wt*, time for 1/4 mile *qsec* and transmission *am* as regressors provide a good fit fo the MPG variation. As a final step, we now check if there is an interaction between the regressor variables. In the Appendix we show that cars with automatic transmission (am=0) weigh more than the automatic transmission cars (am=1) and therefore have a higher petrol consumption. This indicates that there may be an interaction term between weight *wt* and transmission type *am* in the regression model:
+```{r, results='hide'}
+IntModel<-lm(mpg ~ wt + qsec + am + wt:am, data = mtcars)
+```
+The Adjusted R-squared value standard error for this model is *0.880* (see Appendix) which means that the model, with the interaction term between weigth and transmission, can explain about 88% of the variance of the MPG variable. All of the coefficients are significant at 0.05 significant level.
+
+###Conclusion on the Model selection
+We select **mpg** ~ **wt + qsec + am + wt : am** model for the MPG outcome as it provides the best fit in terms of minimum standard error and statistical significance. 
+```{r,echo=FALSE }
+summary(IntModel)$coef
+```
+The result shows that when *wt* weight (lb/1000) and *qsec* (1/4 mile time) remain constant, cars with manual transmission (am1) add *14.079 + (-4.141)* \* *wt* more miles per gallon on average than cars with automatic transmission.
+
+##### Residual Analysis and diagnostic
+The residual plots of the chosen model are in the Appendix. The following observations can be made:
+
+1. Residual vd. Fitted: supports the indipendency assumption (no visible pattern)
+2. Normal Q-Q: residuals lie close to the line (normal distributed)
+3. Scale-Location: points are randomly distributed 
+4. Residuals vs. Leverage: all values are within the 0.5 band (no outliers)
+
+The sum of the abs values of the dfbetas is `r round(sum(abs(dfbetas(IntModel))),1)` >1 which indicates that no observation has impacted the estimate of a regression coefficient.
+
+
+\newpage
+
+# Appendix
+
+## Exploratory Data Analysis
+Number of cars by transmission type
+```{r, echo=TRUE}
+table(mtcars$am)
+```
+###Fuel consumption by transmission type 
+
+```{r}
+ggplot(mtcars,aes(am, mpg)) + geom_boxplot() +
+        xlab("Transmission (0 = automatic, 1= manual)") +
+        ylab("Fuel Consumption (MPG)") +
+        ggtitle("Fuel Consumption by Transmission Type")
+```
+###Pairs chart        
+```{r, warning=FALSE,message=FALSE}
+pairs(mtcars, panel=panel.smooth, main="Scatterplot Matrix")
+```
+The charts on the top line shows the variation of *mpg* (y-axis) with the other variables (x-axis). Variables such as horse power *hp*, weight *wt*, and number of cylinders *cyl* also seem to have an impact on MPG (with different levels of magnitude).
+
+## Regression and Statistical Significance Analysis
+#### Transmission only fit
+```{r}
+amfit<-lm(mpg ~ am,data=mtcars)
+summary(amfit)
+```
+####Full model
+```{r}
+fullfit<-lm(mpg ~ .,data=mtcars)
+summary(fullfit)
+```
+####Step fit 
+```{r, results='hide'}
+stepModel<-step(fullfit,k=log(nrow(mtcars))) 
+```
+```{r}
+summary(stepModel)
+```
+```{r}
+anova(stepModel)
+```
+####Scatter Plot for Interaction Model
+
+```{r}
+ggplot(mtcars,aes(x=wt,y=mpg,color=am))+geom_point()+ggtitle("MPG vs. Weight by Transmission")
+```
+Cars with automatic transmission (am=0) weigh more than the automatic transmission cars (am=1) and therefore have a higher petrol consumption.
+#### Interaction Model
+```{r,results='hide'}
+IntModel<-lm(mpg ~ wt + qsec + am + wt:am, data = mtcars)
+```
+```{r}
+summary(IntModel)
+```
+#### Residual Plots
+```{r}
+par(mfrow=c(2,2))
+plot(IntModel)
+```
